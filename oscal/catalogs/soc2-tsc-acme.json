@@ -1,0 +1,158 @@
+{
+  "catalog": {
+    "uuid": "f1796b1b-64f4-4e64-95fe-65c05c0da77e",
+    "metadata": {
+      "title": "Acme Health SOC 2 Trust Services Criteria (summary catalog)",
+      "last-modified": "2026-10-13T20:45:00+00:00",
+      "version": "1.0.0",
+      "oscal-version": "1.2.1",
+      "remarks": "Acme-authored summary catalog covering only the SOC 2 criteria this system implements. AICPA does not publish an official OSCAL catalog for the Trust Services Criteria. Titles and statements here are short paraphrases, not AICPA text. The mapped-nist-800-53 property is an illustrative crosswalk, not an authoritative one."
+    },
+    "groups": [
+      {
+        "id": "cc6",
+        "title": "Logical and Physical Access Controls",
+        "controls": [
+          {
+            "id": "cc6.1",
+            "title": "Logical access security over information assets",
+            "props": [
+              {
+                "name": "label",
+                "value": "CC6.1"
+              },
+              {
+                "name": "mapped-nist-800-53",
+                "value": "sc-28"
+              }
+            ],
+            "parts": [
+              {
+                "id": "cc6.1_smt",
+                "name": "statement",
+                "prose": "Access to information assets is restricted through logical access controls, including protection of data at rest."
+              }
+            ]
+          },
+          {
+            "id": "cc6.3",
+            "title": "Authorization and least privilege",
+            "props": [
+              {
+                "name": "label",
+                "value": "CC6.3"
+              },
+              {
+                "name": "mapped-nist-800-53",
+                "value": "ac-6"
+              }
+            ],
+            "parts": [
+              {
+                "id": "cc6.3_smt",
+                "name": "statement",
+                "prose": "Access is granted, modified, and removed based on authorization and the principle of least privilege."
+              }
+            ]
+          },
+          {
+            "id": "cc6.6",
+            "title": "Boundary protection",
+            "props": [
+              {
+                "name": "label",
+                "value": "CC6.6"
+              },
+              {
+                "name": "mapped-nist-800-53",
+                "value": "sc-7"
+              }
+            ],
+            "parts": [
+              {
+                "id": "cc6.6_smt",
+                "name": "statement",
+                "prose": "The system is protected from threats originating outside its boundaries through boundary controls."
+              }
+            ]
+          },
+          {
+            "id": "cc6.7",
+            "title": "Protection of data in transit",
+            "props": [
+              {
+                "name": "label",
+                "value": "CC6.7"
+              },
+              {
+                "name": "mapped-nist-800-53",
+                "value": "sc-8"
+              }
+            ],
+            "parts": [
+              {
+                "id": "cc6.7_smt",
+                "name": "statement",
+                "prose": "Transmission of information is restricted to authorized parties and protected while in transit."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "cc7",
+        "title": "System Operations",
+        "controls": [
+          {
+            "id": "cc7.2",
+            "title": "System monitoring",
+            "props": [
+              {
+                "name": "label",
+                "value": "CC7.2"
+              },
+              {
+                "name": "mapped-nist-800-53",
+                "value": "au-6"
+              }
+            ],
+            "parts": [
+              {
+                "id": "cc7.2_smt",
+                "name": "statement",
+                "prose": "System components are monitored for anomalies and security events, and activity is recorded for review."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "a1",
+        "title": "Availability",
+        "controls": [
+          {
+            "id": "a1.2",
+            "title": "Backup and recovery",
+            "props": [
+              {
+                "name": "label",
+                "value": "A1.2"
+              },
+              {
+                "name": "mapped-nist-800-53",
+                "value": "cp-9"
+              }
+            ],
+            "parts": [
+              {
+                "id": "a1.2_smt",
+                "name": "statement",
+                "prose": "Protections, backup, and recovery capabilities support the availability of the system and its data."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

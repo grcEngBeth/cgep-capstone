@@ -4,7 +4,9 @@
 # description: "Every aws_s3_bucket needs an SSE configuration using aws:kms with a KMS key we own."
 # custom:
 #   control_id: CC6.1
-#   framework: soc2-tsc
+#   controls:
+#     - "CC6.1"
+#   framework: soc2
 #   severity: high
 #   remediation: "Add aws_s3_bucket_server_side_encryption_configuration for the bucket with sse_algorithm aws:kms and kms_master_key_id set to our CMK."
 package compliance.cc6_1_s3_kms

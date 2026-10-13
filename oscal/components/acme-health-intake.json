@@ -1,0 +1,447 @@
+{
+  "component-definition": {
+    "uuid": "1b4d2c57-d214-49e8-8c49-a1853999f88e",
+    "metadata": {
+      "title": "Acme Health Patient Intake API - SOC 2 governed system",
+      "last-modified": "2026-10-13T20:45:00+00:00",
+      "version": "1.0.0",
+      "oscal-version": "1.2.1",
+      "parties": [
+        {
+          "uuid": "d4788e96-d635-485c-be9f-c48662ae436c",
+          "type": "organization",
+          "name": "Acme Health"
+        }
+      ]
+    },
+    "components": [
+      {
+        "uuid": "2d89be56-4ab1-4e2f-ba8e-eb396fc739d0",
+        "type": "software",
+        "title": "patient-intake-api",
+        "description": "The Acme Health Patient Intake API from the cgep-app-starter (API Gateway, Lambda, DynamoDB, S3) plus the Terraform hardening overrides that close starter gaps GAP-01 to GAP-05 and GAP-07.",
+        "purpose": "Accept patient intake submissions and store PHI with SOC 2 aligned controls.",
+        "responsible-roles": [
+          {
+            "role-id": "provider",
+            "party-uuids": [
+              "d4788e96-d635-485c-be9f-c48662ae436c"
+            ]
+          }
+        ],
+        "control-implementations": [
+          {
+            "uuid": "e0ea2d4c-89e7-4cd5-b841-d8b9c3e81405",
+            "source": "../catalogs/soc2-tsc-acme.json",
+            "description": "SOC 2 Trust Services Criteria implemented by this component, from the Acme Health SOC 2 summary catalog.",
+            "implemented-requirements": [
+              {
+                "uuid": "582269bd-4a22-4186-9dff-a4f0e5855604",
+                "control-id": "cc6.1",
+                "description": "PHI at rest is encrypted with a customer-managed KMS key that has automatic rotation enabled. The uploads bucket uses SSE-KMS and the intake DynamoDB table uses the same key, so key custody sits with Acme and not with AWS defaults.",
+                "props": [
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_kms_key.phi"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_kms_alias.phi"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket_server_side_encryption_configuration.uploads"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_dynamodb_table.intake"
+                  },
+                  {
+                    "name": "rego-policy",
+                    "value": "policies/cc6_1_s3_kms.rego"
+                  },
+                  {
+                    "name": "rego-policy",
+                    "value": "policies/cc6_1_dynamodb_cmk.rego"
+                  },
+                  {
+                    "name": "starter-gap",
+                    "value": "GAP-01"
+                  },
+                  {
+                    "name": "starter-gap",
+                    "value": "GAP-02"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz",
+                    "text": "Signed pipeline evidence bundle from GitHub Actions run 38462035721 (plan, apply log, policy gate results) in the Object Lock vault."
+                  },
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz.sig.bundle",
+                    "text": "Cosign keyless signature bundle (Sigstore) for the evidence bundle above."
+                  }
+                ]
+              },
+              {
+                "uuid": "68ef9af9-14b1-430e-bcf2-1cda5144daad",
+                "control-id": "cc6.3",
+                "description": "The Lambda execution role is limited to dynamodb:PutItem on the intake table, s3:PutObject under the uploads/ prefix, and use of the PHI key only. Wildcard actions are blocked by policy. Limitation: the policy can only evaluate IAM documents whose values are known at plan time.",
+                "props": [
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_iam_role_policy.lambda_inline"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_iam_role_policy.lambda_kms"
+                  },
+                  {
+                    "name": "rego-policy",
+                    "value": "policies/cc6_3_iam_wildcards.rego"
+                  },
+                  {
+                    "name": "starter-gap",
+                    "value": "GAP-07"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz",
+                    "text": "Signed pipeline evidence bundle from GitHub Actions run 38462035721 (plan, apply log, policy gate results) in the Object Lock vault."
+                  },
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz.sig.bundle",
+                    "text": "Cosign keyless signature bundle (Sigstore) for the evidence bundle above."
+                  }
+                ]
+              },
+              {
+                "uuid": "5a87505d-22aa-4795-ab94-3985c8b6f12d",
+                "control-id": "cc6.6",
+                "description": "The intake Lambda runs inside the starter VPC on private subnets. Its security group allows no inbound traffic and HTTPS egress only to the S3 and DynamoDB gateway endpoints. The API Gateway front door remains public by design; WAF and throttling are not implemented (GAP-08 open).",
+                "props": [
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_lambda_function.intake"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_security_group.lambda"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_vpc_endpoint.s3"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_vpc_endpoint.dynamodb"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_route_table.private"
+                  },
+                  {
+                    "name": "rego-policy",
+                    "value": "policies/cc6_6_lambda_vpc.rego"
+                  },
+                  {
+                    "name": "starter-gap",
+                    "value": "GAP-05"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz",
+                    "text": "Signed pipeline evidence bundle from GitHub Actions run 38462035721 (plan, apply log, policy gate results) in the Object Lock vault."
+                  },
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz.sig.bundle",
+                    "text": "Cosign keyless signature bundle (Sigstore) for the evidence bundle above."
+                  }
+                ]
+              },
+              {
+                "uuid": "20f91970-4570-44d4-bff5-fa538fd239d7",
+                "control-id": "cc6.7",
+                "description": "The uploads bucket has a bucket policy that denies any request not made over TLS (aws:SecureTransport = false).",
+                "props": [
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket_policy.uploads"
+                  },
+                  {
+                    "name": "rego-policy",
+                    "value": "policies/cc6_7_s3_tls.rego"
+                  },
+                  {
+                    "name": "starter-gap",
+                    "value": "GAP-03"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz",
+                    "text": "Signed pipeline evidence bundle from GitHub Actions run 38462035721 (plan, apply log, policy gate results) in the Object Lock vault."
+                  },
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz.sig.bundle",
+                    "text": "Cosign keyless signature bundle (Sigstore) for the evidence bundle above."
+                  }
+                ]
+              },
+              {
+                "uuid": "cad690bf-c9c4-4b24-b102-7d6fc10ce32a",
+                "control-id": "a1.2",
+                "description": "Versioning is enabled on the uploads bucket so PHI overwrites and deletions are recoverable.",
+                "props": [
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket_versioning.uploads"
+                  },
+                  {
+                    "name": "rego-policy",
+                    "value": "policies/a1_2_s3_versioning.rego"
+                  },
+                  {
+                    "name": "starter-gap",
+                    "value": "GAP-04"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz",
+                    "text": "Signed pipeline evidence bundle from GitHub Actions run 38462035721 (plan, apply log, policy gate results) in the Object Lock vault."
+                  },
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz.sig.bundle",
+                    "text": "Cosign keyless signature bundle (Sigstore) for the evidence bundle above."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "uuid": "1341275a-41b9-4d17-803d-095def2f7618",
+        "type": "service",
+        "title": "grc-evidence-pipeline",
+        "description": "The governance layer around the API: customer-managed evidence key, Object Lock evidence vault, CloudTrail, OIDC roles, the OPA policy gate, and the GitHub Actions workflow that plans, checks, applies, signs, and uploads evidence.",
+        "purpose": "Keep the system audit-defensible by gating changes and producing signed, immutable evidence on every push to main.",
+        "responsible-roles": [
+          {
+            "role-id": "provider",
+            "party-uuids": [
+              "d4788e96-d635-485c-be9f-c48662ae436c"
+            ]
+          }
+        ],
+        "control-implementations": [
+          {
+            "uuid": "b0db44d8-2e73-455e-b7f0-0d106092633e",
+            "source": "../catalogs/soc2-tsc-acme.json",
+            "description": "SOC 2 Trust Services Criteria implemented by this component, from the Acme Health SOC 2 summary catalog.",
+            "implemented-requirements": [
+              {
+                "uuid": "2a081c35-fd59-4f42-a74f-90fffeaefae6",
+                "control-id": "cc6.1",
+                "description": "Evidence and audit-log buckets are encrypted with a separate customer-managed evidence key (rotation enabled), distinct from the PHI key.",
+                "props": [
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_kms_key.evidence"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_kms_alias.evidence"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket_server_side_encryption_configuration.vault"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket_server_side_encryption_configuration.trail"
+                  },
+                  {
+                    "name": "rego-policy",
+                    "value": "policies/cc6_1_s3_kms.rego"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz",
+                    "text": "Signed pipeline evidence bundle from GitHub Actions run 38462035721 (plan, apply log, policy gate results) in the Object Lock vault."
+                  },
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz.sig.bundle",
+                    "text": "Cosign keyless signature bundle (Sigstore) for the evidence bundle above."
+                  }
+                ]
+              },
+              {
+                "uuid": "47e27adb-5817-4252-850b-4f061ee900b1",
+                "control-id": "cc6.3",
+                "description": "GitHub Actions authenticates through OIDC with two roles. Pull requests can assume only the read-only plan role; only workflow runs on the main branch can assume the apply role. Trade-off: the apply role uses AdministratorAccess in this build and should be scoped to a custom policy in production.",
+                "props": [
+                  {
+                    "name": "implementation-status",
+                    "value": "partial"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_iam_role.plan"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_iam_role.apply"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_iam_role_policy_attachment.plan_readonly"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_iam_role_policy_attachment.apply_admin"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz",
+                    "text": "Signed pipeline evidence bundle from GitHub Actions run 38462035721 (plan, apply log, policy gate results) in the Object Lock vault."
+                  },
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz.sig.bundle",
+                    "text": "Cosign keyless signature bundle (Sigstore) for the evidence bundle above."
+                  }
+                ]
+              },
+              {
+                "uuid": "918c0099-4c73-42ca-bc57-207c17f393d8",
+                "control-id": "a1.2",
+                "description": "The evidence vault has versioning and S3 Object Lock (GOVERNANCE mode, 90-day default retention); the CloudTrail log bucket has versioning enabled.",
+                "props": [
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket_versioning.vault"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket_object_lock_configuration.vault"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket_versioning.trail"
+                  },
+                  {
+                    "name": "rego-policy",
+                    "value": "policies/a1_2_s3_versioning.rego"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz",
+                    "text": "Signed pipeline evidence bundle from GitHub Actions run 38462035721 (plan, apply log, policy gate results) in the Object Lock vault."
+                  },
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz.sig.bundle",
+                    "text": "Cosign keyless signature bundle (Sigstore) for the evidence bundle above."
+                  }
+                ]
+              },
+              {
+                "uuid": "8cd6ce26-01d6-424a-9330-5ae7afa39801",
+                "control-id": "cc7.2",
+                "description": "A multi-region CloudTrail trail with log file validation records management events. Every push to main produces a Cosign-signed evidence bundle stored in the locked vault. Not yet implemented: API Gateway access logging, alarms, Lambda DLQ and tracing (GAP-06 and GAP-08 remain open).",
+                "props": [
+                  {
+                    "name": "implementation-status",
+                    "value": "partial"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_cloudtrail.mgmt"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket.trail"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket.vault"
+                  },
+                  {
+                    "name": "starter-gap",
+                    "value": "GAP-06"
+                  },
+                  {
+                    "name": "starter-gap",
+                    "value": "GAP-08"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz",
+                    "text": "Signed pipeline evidence bundle from GitHub Actions run 38462035721 (plan, apply log, policy gate results) in the Object Lock vault."
+                  },
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-vault-c34bf5d7/runs/38462035721/evidence-38462035721-8351cf9a762d722cd6d1f8a1d5e11635f972e957.tar.gz.sig.bundle",
+                    "text": "Cosign keyless signature bundle (Sigstore) for the evidence bundle above."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

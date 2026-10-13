@@ -4,7 +4,9 @@
 # description: "Every aws_s3_bucket needs a bucket policy with a Deny statement on aws:SecureTransport = false."
 # custom:
 #   control_id: CC6.7
-#   framework: soc2-tsc
+#   controls:
+#     - "CC6.7"
+#   framework: soc2
 #   severity: high
 #   remediation: "Add an aws_s3_bucket_policy whose policy document denies s3:* when aws:SecureTransport is false."
 package compliance.cc6_7_s3_tls
