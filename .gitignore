@@ -19,3 +19,5 @@ evidence/
 *.tfstate.*
 .terraform/
 terraform/lambda/handler.zip
+terraform/tfplan
+terraform/plan.json

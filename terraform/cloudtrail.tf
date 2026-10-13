@@ -92,3 +92,11 @@ resource "aws_cloudtrail" "mgmt" {
 
   depends_on = [aws_s3_bucket_policy.trail]
 }
+
+# A1.2: versioning on the log bucket as well
+resource "aws_s3_bucket_versioning" "trail" {
+  bucket = aws_s3_bucket.trail.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
