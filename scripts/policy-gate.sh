@@ -3,6 +3,8 @@
 # Usage: policy-gate.sh --workspace <path> [--policy <dir>]
 # Requires a saved tfplan inside the workspace (terraform plan -out=tfplan).
 # Fails closed: any policy violation, or any conftest error, returns non-zero.
+# Prints each violation (control ID + remediation) so a developer reading the
+# failed PR knows exactly what to fix.
 set -euo pipefail
 
 POLICY_DIR="policies"
@@ -31,6 +33,16 @@ set -e
 python3 -c 'import json,sys
 d=json.load(open(sys.argv[1]))
 print("policy-gate: checks passed:", sum(x.get("successes",0) for x in d), "| violations:", sum(len(x.get("failures") or []) for x in d))' "$EVIDENCE_DIR/conftest-results.json" || true
+
+# Print every violation message (these carry the SOC 2 control ID and the fix).
+python3 -c 'import json,sys,os
+gha = os.environ.get("GITHUB_ACTIONS") == "true"
+for x in json.load(open(sys.argv[1])):
+    for f in (x.get("failures") or []):
+        msg = f.get("msg", "")
+        print("VIOLATION: " + msg)
+        if gha:
+            print("::error title=Policy gate violation::" + msg)' "$EVIDENCE_DIR/conftest-results.json" || true
 
 if [[ $STATUS -eq 0 ]]; then
   echo "policy-gate: PASS"
