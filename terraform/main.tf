@@ -111,8 +111,11 @@ resource "aws_dynamodb_table" "intake" {
     type = "S"
   }
 
-  # No server_side_encryption block. Defaults to AWS-owned key.
-  # GAP-02: capstone learner expected to add this with a customer-owned key.
+  # GAP-02 (CC6.1): encrypt with our customer-owned CMK
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = aws_kms_key.phi.arn
+  }
 }
 
 ######################################################################
@@ -177,13 +180,13 @@ resource "aws_iam_role_policy" "lambda_inline" {
     Statement = [
       {
         Effect   = "Allow"
-        Action   = "dynamodb:*"
+        Action   = ["dynamodb:PutItem"]
         Resource = aws_dynamodb_table.intake.arn
       },
       {
         Effect   = "Allow"
-        Action   = "s3:*"
-        Resource = ["${aws_s3_bucket.uploads.arn}", "${aws_s3_bucket.uploads.arn}/*"]
+        Action   = ["s3:PutObject"]
+        Resource = "${aws_s3_bucket.uploads.arn}/uploads/*"
       }
     ]
   })
@@ -205,8 +208,13 @@ resource "aws_lambda_function" "intake" {
     }
   }
 
-  # GAP-05: no vpc_config block. Learner expected to add one referencing
-  # aws_subnet.private[*] and a hardened security group.
+  # GAP-05 (CC6.6): run inside the starter's VPC, private subnets only
+  vpc_config {
+    subnet_ids         = aws_subnet.private[*].id
+    security_group_ids = [aws_security_group.lambda.id]
+  }
+
+  depends_on = [aws_iam_role_policy_attachment.lambda_vpc]
 }
 
 ######################################################################
