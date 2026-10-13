@@ -1,0 +1,108 @@
+# .github/workflows/grc-gate.yml
+# Plan -> Policy check -> Apply (main only) -> Sign -> Upload to the Object Lock vault.
+# A failed policy check stops the job, so Apply, Sign, and Upload never run on bad code.
+name: grc-gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write # AWS OIDC login and Cosign keyless signing
+  contents: read
+
+concurrency:
+  group: grc-gate-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  IS_MAIN_PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+jobs:
+  grc-gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pull requests log in as the read-only plan role.
+      # Only a push to main can log in as the apply role (enforced by its AWS trust policy).
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ github.event_name == 'push' && vars.AWS_APPLY_ROLE_ARN || vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+
+      - name: Install Conftest
+        run: |
+          curl -fsSL https://github.com/open-policy-agent/conftest/releases/download/v0.71.0/conftest_0.71.0_Linux_x86_64.tar.gz \
+            | tar -xz -C /usr/local/bin conftest
+          conftest --version
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.2.4'
+
+      - name: "1. Plan"
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          cd terraform
+          terraform init -input=false
+          terraform validate
+          terraform plan -out=tfplan -input=false -no-color | tee ../evidence/plan.txt
+
+      - name: "2. Policy check"
+        run: |
+          set -euo pipefail
+          chmod +x scripts/policy-gate.sh
+          scripts/policy-gate.sh --workspace terraform
+
+      - name: "3. Apply"
+        if: env.IS_MAIN_PUSH == 'true'
+        run: |
+          set -euo pipefail
+          cd terraform
+          terraform apply -input=false -no-color tfplan | tee ../evidence/apply.txt
+
+      - name: "4. Sign"
+        id: sign
+        if: always() && env.IS_MAIN_PUSH == 'true'
+        run: |
+          set -euo pipefail
+          if [ -f terraform/plan.json ]; then cp terraform/plan.json evidence/plan.json; fi
+          printf '{"run_id":"%s","commit":"%s","ref":"%s","actor":"%s","workflow":"%s","captured_at_utc":"%s"}\n' \
+            "$GITHUB_RUN_ID" "$GITHUB_SHA" "$GITHUB_REF" "$GITHUB_ACTOR" "$GITHUB_WORKFLOW" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            > evidence/run-metadata.json
+
+          BUNDLE="evidence-${GITHUB_RUN_ID}-${GITHUB_SHA}.tar.gz"
+          tar czf "${BUNDLE}" -C evidence .
+          sha256sum "${BUNDLE}" | awk '{print $1}' > "${BUNDLE}.sha256"
+          cosign sign-blob --yes --bundle "${BUNDLE}.sig.bundle" "${BUNDLE}"
+          echo "BUNDLE=${BUNDLE}" >> "$GITHUB_ENV"
+
+      - name: "5. Upload"
+        if: always() && env.IS_MAIN_PUSH == 'true' && env.BUNDLE != ''
+        env:
+          VAULT: ${{ vars.EVIDENCE_VAULT }}
+        run: |
+          set -euo pipefail
+          PREFIX="runs/${GITHUB_RUN_ID}"
+          for f in "${BUNDLE}" "${BUNDLE}.sha256" "${BUNDLE}.sig.bundle"; do
+            aws s3 cp "$f" "s3://${VAULT}/${PREFIX}/$f"
+          done
+          VERSION_ID=$(aws s3api head-object --bucket "${VAULT}" --key "${PREFIX}/${BUNDLE}" --query VersionId --output text)
+          printf '{"run_id":"%s","vault":"%s","bundle_key":"%s","version_id":"%s","sha256":"%s","commit":"%s"}\n' \
+            "$GITHUB_RUN_ID" "$VAULT" "${PREFIX}/${BUNDLE}" "$VERSION_ID" "$(cat "${BUNDLE}.sha256")" "$GITHUB_SHA" \
+            > receipt.json
+          aws s3 cp receipt.json "s3://${VAULT}/${PREFIX}/receipt.json"
+          echo "Uploaded signed evidence for run ${GITHUB_RUN_ID} to the vault."

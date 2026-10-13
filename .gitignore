@@ -15,3 +15,9 @@ terraform/lambda/handler.zip
 # Local
 evidence/
 .DS_Store
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform/lambda/handler.zip
+terraform/tfplan
+terraform/plan.json
