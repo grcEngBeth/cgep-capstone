@@ -4,7 +4,9 @@
 # description: "Every aws_lambda_function needs a vpc_config block with subnet_ids."
 # custom:
 #   control_id: CC6.6
-#   framework: soc2-tsc
+#   controls:
+#     - "CC6.6"
+#   framework: soc2
 #   severity: high
 #   remediation: "Add vpc_config with the private subnet_ids and a locked-down security group to the Lambda function."
 package compliance.cc6_6_lambda_vpc

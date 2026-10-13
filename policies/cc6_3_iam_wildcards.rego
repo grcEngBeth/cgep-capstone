@@ -4,7 +4,9 @@
 # description: "No aws_iam_role_policy or aws_iam_policy may Allow the * action or a service-wide service:* action."
 # custom:
 #   control_id: CC6.3
-#   framework: soc2-tsc
+#   controls:
+#     - "CC6.3"
+#   framework: soc2
 #   severity: high
 #   remediation: "Replace wildcard actions with the specific actions the code needs, for example dynamodb:PutItem."
 package compliance.cc6_3_iam_wildcards

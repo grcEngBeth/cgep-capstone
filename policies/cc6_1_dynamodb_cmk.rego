@@ -4,7 +4,9 @@
 # description: "Every aws_dynamodb_table needs server_side_encryption enabled with kms_key_arn set."
 # custom:
 #   control_id: CC6.1
-#   framework: soc2-tsc
+#   controls:
+#     - "CC6.1"
+#   framework: soc2
 #   severity: high
 #   remediation: "Add a server_side_encryption block with enabled = true and kms_key_arn = our CMK ARN."
 package compliance.cc6_1_dynamodb_cmk

@@ -4,7 +4,9 @@
 # description: "Every aws_s3_bucket needs an aws_s3_bucket_versioning resource with status Enabled."
 # custom:
 #   control_id: A1.2
-#   framework: soc2-tsc
+#   controls:
+#     - "A1.2"
+#   framework: soc2
 #   severity: medium
 #   remediation: "Add aws_s3_bucket_versioning for the bucket with versioning_configuration status = Enabled."
 package compliance.a1_2_s3_versioning

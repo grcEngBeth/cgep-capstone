@@ -1,0 +1,31 @@
+{
+  "profile": {
+    "uuid": "bad8de83-7442-45f9-a077-b359f4b54332",
+    "metadata": {
+      "title": "Acme Health SOC 2 minimum control selection",
+      "last-modified": "2026-10-13T20:45:00+00:00",
+      "version": "1.0.0",
+      "oscal-version": "1.2.1"
+    },
+    "imports": [
+      {
+        "href": "../catalogs/soc2-tsc-acme.json",
+        "include-controls": [
+          {
+            "with-ids": [
+              "cc6.1",
+              "cc6.3",
+              "cc6.6",
+              "cc6.7",
+              "cc7.2",
+              "a1.2"
+            ]
+          }
+        ]
+      }
+    ],
+    "merge": {
+      "as-is": true
+    }
+  }
+}
