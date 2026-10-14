@@ -1,80 +1,57 @@
-# cgep-app-starter
+# Acme Health: SOC 2 governed Patient Intake API
 
-> Patient Intake API for "Acme Health". The deliberately-flawed workload your **CGE-P capstone** wraps with GRC controls.
-
-## What this is
-
-A minimal AWS workload: VPC, Lambda, API Gateway, DynamoDB, S3. It ingests patient intake submissions over HTTPS. Think of it as a system you have just inherited from an engineering team and been asked to make audit-defensible.
-
-This repository ships **non-compliant on purpose**. Your job in the capstone is not to rewrite this app. Your job is to wrap it with the four CGE-P layers (Terraform GRC baseline, Rego policies, GitHub Actions evidence pipeline, OSCAL component) so the same workload becomes audit-defensible against HIPAA, SOC 2, and CMMC L2.
-
-## The deploy gate
-
-If you cannot deploy this starter, you cannot pass the capstone. Real GRC engineers inherit working systems. Step zero is making the system run.
-
-```bash
-git clone https://github.com/GRCEngClub/cgep-app-starter
-cd cgep-app-starter
-
-# Confirm you're authenticated to the right account:
-make creds AWS_PROFILE=<your-sandbox-profile>
-
-make deploy AWS_PROFILE=<your-sandbox-profile>
-make test    AWS_PROFILE=<your-sandbox-profile>
-```
-
-> **AWS SSO note:** if your profile is SSO-based, Terraform's AWS provider can fail to read it directly with `failed to find SSO session section`. The Makefile's `eval $(aws configure export-credentials)` pattern handles this. If you're running `terraform` commands by hand, do the same export first.
-
-Expected output of `make test`:
-
-```json
-{
-    "submission_id": "f1e3...",
-    "status": "received"
-}
-```
-
-When you're done exploring: `make destroy`.
-
-## What you build on top
-
-Fork the repo into your own `cgep-capstone` and add:
-
-1. **Layer 1 — GRC baseline (Terraform).** KMS keys, an S3 evidence vault with Object Lock, a CloudTrail trail. Bring this starter's data stores under your CMK.
-2. **Layer 2 — OPA policy suite (Rego).** Five or more policies that catch the named gaps in [GAPS.md](GAPS.md). Each policy maps to at least one control from the framework you choose.
-3. **Layer 3 — GitHub Actions pipeline.** Plan → Conftest gate → apply → Cosign sign → upload to vault.
-4. **Layer 4 — OSCAL component.** A `component-definition.json` describing how your governed system implements its controls.
-
-Full brief: `docs/labs/07_01_capstone_brief.md` in the course content repo.
-
-## Framework mapping is required
-
-Your capstone must declare a primary framework: **HIPAA Security Rule**, **SOC 2 Trust Services Criteria**, or **CMMC Level 2**. Every policy carries at least one control ID from your chosen framework. Your OSCAL component's `control-implementations` reference your framework's catalog.
-
-A starter mapping is in [FRAMEWORKS.md](FRAMEWORKS.md). It is not the only valid mapping. You're expected to defend yours.
-
-## Cost
-
-Roughly $0 if destroyed within an hour. Lambda + API Gateway + DynamoDB + S3 are all pay-per-use, and an empty deployment generates no traffic. CloudTrail (which you add) costs cents.
+CGE-P capstone. This repo is a fork of [`GRCEngClub/cgep-app-starter`](https://github.com/GRCEngClub/cgep-app-starter).
+The starter's workload (API Gateway, Lambda, DynamoDB, S3) is unchanged and still deployable with `make deploy`.
+Everything else is the governance layer around it. **Primary framework: SOC 2 Trust Services Criteria.**
+Design reasoning is in [`WRITEUP.md`](WRITEUP.md).
 
 ## Layout
 
-```
-cgep-app-starter/
-├── README.md            # this file
-├── WORKLOAD.md          # what the API does
-├── GAPS.md              # the named flaws your policies must catch
-├── FRAMEWORKS.md        # HIPAA / SOC 2 / CMMC mapping primer
-├── Makefile             # make deploy | test | destroy
-├── terraform/
-│   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   └── lambda/handler.py
-└── test/
-    └── intake.sh
-```
+| Path | What it is |
+|---|---|
+| `terraform/` | Starter workload plus `kms.tf`, `evidence-vault.tf`, `cloudtrail.tf`, `oidc-trust.tf`, `hardening.tf`, `backend.tf` |
+| `policies/` | Six Rego policies (SOC 2 CC6.1 x2, CC6.3, CC6.6, CC6.7, A1.2) with tests in `policies/tests/` |
+| `.github/workflows/grc-gate.yml` | One workflow: 1. Plan, 2. Policy check, 3. Apply, 4. Sign, 5. Upload |
+| `scripts/` | `policy-gate.sh` (Conftest gate), `verify-evidence.sh` (chain-of-custody check) |
+| `oscal/` | SOC 2 summary catalog, profile, and component definition |
+| `evidence/oscal/` | `trestle validate` transcript |
 
-## License
+## Verify it (grader steps)
 
-MIT. Fork freely. Submissions remain learners' own work.
+**1. Policies pass their tests** (needs `opa`)
+
+    opa test policies
+
+Expect `PASS: 16/16`.
+
+**2. A signed evidence bundle is intact** (needs `aws` CLI, `cosign`, and read access to the vault)
+
+    export EVIDENCE_VAULT=acme-health-intake-evidence-vault-c34bf5d7
+    scripts/verify-evidence.sh 38462035721 --profile <your-aws-profile>
+
+Expect `Verified OK` and `CHAIN INTACT for run 38462035721`. The script recomputes the SHA-256, verifies the Cosign
+keyless signature against Sigstore, and checks that Object Lock retention is still active (GOVERNANCE, 90 days).
+Other runs are listed under `s3://acme-health-intake-evidence-vault-c34bf5d7/runs/`. Every push to `main` adds one.
+
+**3. The gate fails closed** (needs Terraform, Conftest, and AWS credentials)
+
+    cd terraform && terraform init && terraform plan -out=tfplan && cd ..
+    scripts/policy-gate.sh --workspace terraform
+
+Expect `PASS`. To see it fail, set the `status` in `aws_s3_bucket_versioning.uploads` to `Suspended` and re-run: the
+gate prints `VIOLATION: [SOC2 A1.2] aws_s3_bucket.uploads ...`.
+
+**4. Pull requests in history**
+
+- Green, merged: #1 (baseline), #3 (gate output), #4 (OSCAL)
+- Red, blocked and left open: #2 (suspends S3 versioning; merge refused by branch protection, failed run 38460904696)
+
+**5. OSCAL validates** (needs `compliance-trestle`)
+
+    trestle init
+    trestle import -f oscal/catalogs/soc2-tsc-acme.json -o soc2-tsc-acme
+    trestle import -f oscal/profiles/acme-soc2-minimum.json -o acme-soc2-minimum
+    trestle import -f oscal/components/acme-health-intake.json -o acme-health-intake
+    trestle validate -a
+
+Run these in a scratch directory (copy `oscal/` there), since `trestle` needs its own workspace.
